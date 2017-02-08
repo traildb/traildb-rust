@@ -5,6 +5,8 @@ use std::ffi::CString;
 use std::fmt;
 use std::mem::transmute;
 
+use std::collections::HashMap;
+
 #[derive(Debug)]
 #[derive(PartialEq)]
 #[repr(C)]
@@ -108,7 +110,7 @@ pub type TrailId = u64;
 pub type Uuid = [u8; 16];
 
 /// TODO: Document me
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug,Clone,Copy,PartialEq,Eq,Hash)]
 pub struct Item(pub u64);
 /// TODO: Document me
 pub type Value = u64;
@@ -210,7 +212,7 @@ impl Constructor {
 
 
 pub struct Db<'a> {
-    obj: &'a mut ffi::tdb,
+    obj: &'a mut ffi::tdb
 }
 
 impl<'a> Db<'a> {
@@ -287,7 +289,7 @@ impl<'a> Db<'a> {
         }
     }
 
-    pub fn cursor(&self) -> Cursor<'a> {
+    pub fn cursor(&'a self) -> Cursor<'a> {
         unsafe {
             let ptr = ffi::tdb_cursor_new(self.obj);
             Cursor { obj: transmute(ptr) }
@@ -307,6 +309,21 @@ impl<'a> Db<'a> {
         }
     }
 
+    pub fn get_item(&'a self, field: Field, value: &str) -> Option<Item> {
+        unsafe {
+            let item = ffi::tdb_get_item(self.obj,
+                                         transmute(field),
+                                         value.as_ptr() as *const i8,
+                                         value.len() as u64);
+
+            if item == 0 {
+                None
+            } else {
+                Some(Item(item))
+            }
+        }
+    }
+
     pub fn get_field_name(&'a self, field: Field) -> Option<&'a str> {
         unsafe {
             let ptr = ffi::tdb_get_field_name(self.obj, field);
@@ -316,6 +333,36 @@ impl<'a> Db<'a> {
             }
         }
     }
+
+    pub fn lexicon_size(&'a self, field: Field) -> u64 {
+        unsafe { ffi::tdb_lexicon_size(self.obj, field) }
+    }
+
+    pub fn lexicon(&'a self, field: Field) -> Vec<&'a str> {
+        let mut vec = Vec::with_capacity(self.lexicon_size(field) as usize);
+        for i in 1..self.lexicon_size(field) {
+            let value = unsafe {
+                let mut len = 0u64;
+                let ptr = unsafe { ffi::tdb_get_value(self.obj, field, i, &mut len) };
+                let s = std::slice::from_raw_parts(ptr as *const u8, len as usize);
+                std::str::from_utf8_unchecked(s)
+            };
+            vec.push(value);
+        }
+        vec
+    }
+
+    pub fn fields(&'a self) -> HashMap<&str, Field> {
+        let num_fields = self.num_fields();
+        let mut fields: HashMap<&'a str, Field> = HashMap::with_capacity(num_fields as usize);
+
+        for i in 1..num_fields {
+            let field: Field = i as u32;
+            let name = self.get_field_name(field).unwrap().clone();
+            fields.insert(name, field);
+        }
+        fields
+    }
 }
 
 
@@ -323,7 +370,7 @@ impl<'a> Db<'a> {
 
 pub struct DbIter<'a> {
     pos: u64,
-    db: &'a Db<'a>,
+    db: &'a Db<'a>
 }
 
 impl<'a> Iterator for DbIter<'a> {
