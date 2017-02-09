@@ -3,7 +3,8 @@ mod ffi;
 use std::path::Path;
 use std::ffi::CString;
 use std::fmt;
-use std::mem::transmute;
+use std::mem::{transmute, forget};
+
 
 use std::collections::HashMap;
 
@@ -158,10 +159,14 @@ pub struct Constructor {
 impl Constructor {
     /// Create a new TrailDB constructor.
     pub fn new(path: &Path, fields: &[&str]) -> Result<Self, Error> {
+
         let mut field_ptrs = Vec::new();
         for f in fields.iter() {
-            field_ptrs.push(f.as_ptr());
+            let s = CString::new(*f).unwrap();
+            field_ptrs.push(s.as_ptr());
+            forget(s);
         }
+
         let ptr = unsafe { ffi::tdb_cons_init() };
         let ret = unsafe {
             ffi::tdb_cons_open(ptr,
