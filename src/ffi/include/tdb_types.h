@@ -10,7 +10,7 @@
    Internally we deal with ids:
     (uint64_t) trail_id  -> (16 byte) uuid
     (uint32_t) field     -> (0-terminated str) field_name
-    (uint44_t) val       -> (bytes) value
+    (uint64_t) val       -> (bytes) value
 
    The complete picture looks like:
 
@@ -52,10 +52,18 @@ typedef struct __attribute__((packed)){
 } tdb_event;
 
 typedef struct{
+    const tdb *db;
+    const tdb_event *event;
+    uint64_t cursor_idx;
+} tdb_multi_event;
+
+typedef struct{
     struct tdb_decode_state *state;
     const char *next_event;
     uint64_t num_events_left;
 } tdb_cursor;
+
+typedef struct tdb_multi_cursor tdb_multi_cursor;
 
 #define tdb_item_field32(item) (item & 127)
 #define tdb_item_val32(item)   ((item >> 8) & UINT32_MAX)
@@ -113,6 +121,12 @@ static const tdb_opt_value TDB_FALSE __attribute__((unused)) = {.value = 0};
 #define opt_val(x) ((tdb_opt_value){.value = x})
 #define TDB_OPT_CONS_OUTPUT_FORMAT_DIR 0
 #define TDB_OPT_CONS_OUTPUT_FORMAT_PACKAGE 1
+
+typedef enum {
+    TDB_EVENT_FILTER_UNKNOWN_TERM = 0,
+    TDB_EVENT_FILTER_MATCH_TERM = 1,
+    TDB_EVENT_FILTER_TIME_RANGE_TERM = 2
+} tdb_event_filter_term_type;
 
 #endif /* __TDB_TYPES_H__ */
 

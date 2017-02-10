@@ -96,11 +96,23 @@ uint64_t tdb_version(const tdb *db);
 /* Translate an error code to a string */
 const char *tdb_error_str(tdb_error errcode);
 
-/* Set a TrailDB option */
+/* Set a top-level option */
 tdb_error tdb_set_opt(tdb *db, tdb_opt_key key, tdb_opt_value value);
 
-/* Get a TrailDB option */
+/* Get a top-level option */
 tdb_error tdb_get_opt(tdb *db, tdb_opt_key key, tdb_opt_value *value);
+
+/* Set a trail-level option */
+tdb_error tdb_set_trail_opt(tdb *db,
+                            uint64_t trail_id,
+                            tdb_opt_key key,
+                            tdb_opt_value value);
+
+/* Get a trail-level option */
+tdb_error tdb_get_trail_opt(tdb *db,
+                            uint64_t trail_id,
+                            tdb_opt_key key,
+                            tdb_opt_value *value);
 
 /*
 ----------------------------------
@@ -170,11 +182,45 @@ tdb_error tdb_event_filter_add_term(struct tdb_event_filter *filter,
                                     tdb_item term,
                                     int is_negative);
 
+/* Add a timestamp range query (start_time <= timestamp < end_time) in an OR-clause */
+tdb_error tdb_event_filter_add_time_range(struct tdb_event_filter *filter,
+                                          uint64_t start_time,
+                                          uint64_t end_time);
+
 /* Add a new clause, connected by AND to the previous clauses */
 tdb_error tdb_event_filter_new_clause(struct tdb_event_filter *filter);
 
 /* Free an event filter */
 void tdb_event_filter_free(struct tdb_event_filter *filter);
+
+/* Get term type for a term in a clause */
+tdb_error tdb_event_filter_get_term_type(const struct tdb_event_filter *filter,
+                                         uint64_t clause_index,
+                                         uint64_t term_index,
+                                         tdb_event_filter_term_type *term_type);
+
+/* Get an item in a clause */
+tdb_error tdb_event_filter_get_item(const struct tdb_event_filter *filter,
+                                    uint64_t clause_index,
+                                    uint64_t item_index,
+                                    tdb_item *item,
+                                    int *is_negative);
+
+/* Get time-range term in a clause */
+tdb_error tdb_event_filter_get_time_range(const struct tdb_event_filter *filter,
+                                          uint64_t clause_index,
+                                          uint64_t term_index,
+                                          uint64_t *start_time,
+                                          uint64_t *end_time);
+
+/* Get the number of clauses in this filter */
+uint64_t tdb_event_filter_num_clauses(const struct tdb_event_filter *filter);
+
+/* Get the number of terms in a clause */
+tdb_error tdb_event_filter_num_terms(const struct tdb_event_filter *filter,
+                                     uint64_t clause_index,
+                                     uint64_t *num_terms);
+
 
 /*
 ------------
@@ -204,6 +250,38 @@ void tdb_cursor_unset_event_filter(tdb_cursor *cursor);
 /* Internal function used by tdb_cursor_next() */
 int _tdb_cursor_next_batch(tdb_cursor *cursor);
 
+/*
+------------
+Multi cursor
+------------
+*/
+
+/* Create a new multicursor */
+tdb_multi_cursor *tdb_multi_cursor_new(tdb_cursor **cursors,
+                                       uint64_t num_cursors);
+
+/*
+Reset the multicursor to reflect the underlying status of individual
+cursors. Call after tdb_get_trail() or tdb_cursor_next()
+*/
+void tdb_multi_cursor_reset(tdb_multi_cursor *mc);
+
+/* Return next event in the timestamp order from the underlying cursors */
+const tdb_multi_event *tdb_multi_cursor_next(tdb_multi_cursor *mcursor);
+
+/*
+Return a batch of maximum max_events in the timestamp order from the
+underlying cursors
+*/
+uint64_t tdb_multi_cursor_next_batch(tdb_multi_cursor *mcursor,
+                                     tdb_multi_event *events,
+                                     uint64_t max_events);
+
+/* Peek the next event in the cursor */
+const tdb_multi_event *tdb_multi_cursor_peek(tdb_multi_cursor *mcursor);
+
+/* Free multicursors */
+void tdb_multi_cursor_free(tdb_multi_cursor *mcursor);
 
 /*
 Return the next event from the cursor
@@ -214,7 +292,7 @@ the pragma is a workaround for older GCCs that have this issue:
 https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54113
 */
 
-const tdb_event* tdb_cursor_next(tdb_cursor *cursor)
+const tdb_event *tdb_cursor_next(tdb_cursor *cursor)
 {
     if (cursor->num_events_left > 0 || _tdb_cursor_next_batch(cursor)){
         const tdb_event *e = (const tdb_event*)cursor->next_event;
@@ -225,5 +303,19 @@ const tdb_event* tdb_cursor_next(tdb_cursor *cursor)
     }else
         return NULL;
 }
+
+/*
+Peek the next event in the cursor
+*/
+__attribute__((visibility("default"))) inline const tdb_event *tdb_cursor_peek(tdb_cursor *cursor)
+{
+    if (cursor->num_events_left > 0 || _tdb_cursor_next_batch(cursor)){
+        return (const tdb_event*)cursor->next_event;
+    }else
+        return NULL;
+}
+
+
+#pragma GCC diagnostic pop
 
 #endif /* __TRAILDB_H__ */
