@@ -371,6 +371,15 @@ impl<'a> Db<'a> {
 }
 
 
+impl<'a> Drop for Db<'a> {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::tdb_close(self.obj)
+        };
+    }
+}
+
+
 
 
 pub struct DbIter<'a> {
@@ -487,7 +496,7 @@ impl<'a> Event<'a> {
 #[cfg(test)]
 mod test_traildb {
     extern crate uuid;
-    use super::{Constructor, Db};
+    use super::{Constructor, Db, Field};
     use std::path::Path;
 
     #[test]
@@ -530,6 +539,12 @@ mod test_traildb {
         let num_fields = db.num_fields();
         println!("Num fields: {}", num_fields);
         assert_eq!(num_fields, 1 + field_names.len() as u64);
+
+        // check field names are correct
+        let db_fields = db.fields();
+        assert!(db_fields.contains_key("field1"));
+        assert!(db_fields.contains_key("field2"));
+        assert_eq!(None, db_fields.get("missing"));
 
         // check number of trails
         let num_trails = db.num_trails();
