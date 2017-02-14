@@ -477,12 +477,12 @@ impl<'a> Drop for MultiCursor<'a> {
 }
 
 impl<'a> Iterator for MultiCursor<'a> {
-    type Item = Event<'a>;
+    type Item = MultiEvent<'a>;
 
-    fn next(&mut self) -> Option<Event<'a>> {
+    fn next(&mut self) -> Option<MultiEvent<'a>> {
         unsafe {
             let e = ffi::tdb_multi_cursor_next(self.obj);
-            Event::from_tdb_multi_event(e)
+            MultiEvent::from_tdb_multi_event(e)
         }
     }
 }
@@ -533,17 +533,27 @@ impl<'a> Event<'a> {
             }
         }
     }
+}
 
+#[derive(Debug)]
+pub struct MultiEvent<'a> {
+    pub cursor_idx: usize,
+    pub event: Event<'a>
+}
+
+
+impl<'a> MultiEvent<'a> {
     fn from_tdb_multi_event(e: *const ffi::tdb_multi_event) -> Option<Self> {
         unsafe {
             match e.as_ref() {
                 None => None,
                 Some(multi_event) => {
-                    Some(Event {
-                        timestamp: (*multi_event.event).timestamp,
-                        items: std::slice::from_raw_parts(transmute(&(*multi_event.event).items),
-                                                          (*multi_event.event).num_items as usize)
-                    })
+                    match Event::from_tdb_event(multi_event.event) {
+                        None => None,
+                        Some(event) =>
+                            Some(MultiEvent { event: event,
+                                              cursor_idx: multi_event.cursor_idx as usize})
+                    }
                 }
             }
         }
@@ -552,13 +562,14 @@ impl<'a> Event<'a> {
 
 
 
-
 #[cfg(test)]
 mod test_traildb {
     extern crate uuid;
-    use super::{Constructor, Db, Field, Event, MultiCursor};
+    use super::{Constructor, Db, Field, Event, MultiCursor, MultiEvent};
     use std::path::Path;
     use std::cell::RefCell;
+    use std::collections::HashSet;
+    use std::iter::FromIterator;
 
     #[test]
     #[no_mangle]
@@ -679,8 +690,10 @@ mod test_traildb {
         assert!(cursor2.get_trail(1).is_ok());
         multi_cursor.reset();
 
-        let events: Vec<Event> = multi_cursor.collect();
-        assert_eq!(vec![10, 11, 12, 20, 21, 22], events.iter().map(|e| e.timestamp).collect::<Vec<u64>>());
+        let multi_events: Vec<MultiEvent> = multi_cursor.collect();
+        assert_eq!(vec![10, 11, 12, 20, 21, 22], multi_events.iter().map(|me| me.event.timestamp).collect::<Vec<u64>>());
+        assert_eq!(HashSet::from_iter(vec![0, 0, 0, 1, 1, 1].into_iter()),
+                   multi_events.iter().map(|me| me.cursor_idx).collect::<HashSet<usize>>());
 
         // TODO: Test dropping cursors, should not be allowed if multi
         // cursor is still around.
