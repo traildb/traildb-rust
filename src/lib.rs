@@ -4,7 +4,7 @@ use std::path::Path;
 use std::ffi::CString;
 use std::fmt;
 use std::mem::{transmute, forget};
-
+use std::cell::RefCell;
 
 use std::collections::HashMap;
 
@@ -443,6 +443,51 @@ impl<'a> Iterator for Cursor<'a> {
 }
 
 
+pub struct MultiCursor<'a> {
+    obj: &'a mut ffi::tdb_multi_cursor
+}
+
+impl<'a> MultiCursor<'a> {
+    /// Open a cursor in each of the Dbs passed. If you want multiple
+    /// cursors for the same db, include it multiple times.
+    pub fn new(cursors: &[RefCell<Cursor<'a>>]) -> MultiCursor<'a> {
+        let mut ptrs: Vec<*const ffi::tdb_cursor> = vec![];
+        for refcell in cursors.iter() {
+            let cursor = refcell.borrow();
+            let ptr: *const ffi::tdb_cursor = cursor.obj;
+            ptrs.push(ptr);
+        }
+
+        unsafe {
+            let ptr = ffi::tdb_multi_cursor_new(ptrs.as_slice().as_ptr() as *mut *mut ffi::tdb_cursor,
+                                                ptrs.len() as u64);
+            MultiCursor { obj: transmute(ptr) }
+        }
+    }
+
+    pub fn reset(&mut self) {
+        unsafe { ffi::tdb_multi_cursor_reset(self.obj) };
+    }
+}
+
+impl<'a> Drop for MultiCursor<'a> {
+    fn drop(&mut self) {
+        unsafe { ffi::tdb_multi_cursor_free(self.obj) };
+    }
+}
+
+impl<'a> Iterator for MultiCursor<'a> {
+    type Item = Event<'a>;
+
+    fn next(&mut self) -> Option<Event<'a>> {
+        unsafe {
+            let e = ffi::tdb_multi_cursor_next(self.obj);
+            Event::from_tdb_multi_event(e)
+        }
+    }
+}
+
+
 
 
 pub struct Trail<'a> {
@@ -467,7 +512,7 @@ fn path_cstr(path: &Path) -> CString {
 
 
 
-
+#[derive(Debug)]
 pub struct Event<'a> {
     pub timestamp: Timestamp,
     pub items: &'a [Item],
@@ -482,7 +527,22 @@ impl<'a> Event<'a> {
                     Some(Event {
                         timestamp: e.timestamp,
                         items: std::slice::from_raw_parts(transmute(&e.items),
-                                                          e.num_items as usize),
+                                                          e.num_items as usize)
+                    })
+                }
+            }
+        }
+    }
+
+    fn from_tdb_multi_event(e: *const ffi::tdb_multi_event) -> Option<Self> {
+        unsafe {
+            match e.as_ref() {
+                None => None,
+                Some(multi_event) => {
+                    Some(Event {
+                        timestamp: (*multi_event.event).timestamp,
+                        items: std::slice::from_raw_parts(transmute(&(*multi_event.event).items),
+                                                          (*multi_event.event).num_items as usize)
                     })
                 }
             }
@@ -496,8 +556,9 @@ impl<'a> Event<'a> {
 #[cfg(test)]
 mod test_traildb {
     extern crate uuid;
-    use super::{Constructor, Db, Field};
+    use super::{Constructor, Db, Field, Event, MultiCursor};
     use std::path::Path;
+    use std::cell::RefCell;
 
     #[test]
     #[no_mangle]
@@ -513,7 +574,7 @@ mod test_traildb {
         let mut trail_cnt = 0;
         let mut event_cnt = 0;
         let mut uuids = Vec::new();
-        let mut timestamp = 0;
+        let mut timestamp = 1;
         let mut timestamps = Vec::new();
         for _ in 0..10 {
             let uuid = *uuid::Uuid::new_v4().as_bytes();
@@ -537,7 +598,6 @@ mod test_traildb {
 
         // check number of fields
         let num_fields = db.num_fields();
-        println!("Num fields: {}", num_fields);
         assert_eq!(num_fields, 1 + field_names.len() as u64);
 
         // check field names are correct
@@ -548,12 +608,10 @@ mod test_traildb {
 
         // check number of trails
         let num_trails = db.num_trails();
-        println!("Num trails: {}", num_trails);
         assert_eq!(num_trails, trail_cnt);
 
         // check number of events
         let num_events = db.num_events();
-        println!("Num events: {}", num_events);
         assert_eq!(num_events, event_cnt);
 
         // Check round-trip get_uuid/get_trail_id
@@ -566,7 +624,6 @@ mod test_traildb {
         // check max/min timestamp
         let min_timestamp = *timestamps.iter().min().unwrap();
         let max_timestamp = *timestamps.iter().max().unwrap();
-        println!("Mix/Max timestamp: {}/{}", min_timestamp, max_timestamp);
         assert_eq!(db.min_timestamp(), min_timestamp);
         assert_eq!(db.max_timestamp(), max_timestamp);
 
@@ -589,5 +646,43 @@ mod test_traildb {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_multi_cursor() {
+        let field_names = ["field1"];
+        let db_path = Path::new("multicursor-test");
+        let mut cons = Constructor::new(db_path, &field_names).unwrap();
+
+        let uuid1 = *uuid::Uuid::new_v4().as_bytes();
+        let uuid2 = *uuid::Uuid::new_v4().as_bytes();
+
+        assert!(cons.add(&uuid1, 10, &["foo1"]).is_ok());
+        assert!(cons.add(&uuid1, 11, &["foo2"]).is_ok());
+        assert!(cons.add(&uuid1, 12, &["foo3"]).is_ok());
+
+        assert!(cons.add(&uuid2, 20, &["bar1"]).is_ok());
+        assert!(cons.add(&uuid2, 21, &["bar2"]).is_ok());
+        assert!(cons.add(&uuid2, 22, &["bar3"]).is_ok());
+
+        assert!(cons.finalize().is_ok());
+
+
+        let db = Db::open(db_path).unwrap();
+
+        let cursors = vec![RefCell::new(db.cursor()), RefCell::new(db.cursor())];
+        let mut multi_cursor = MultiCursor::new(&cursors);
+        let mut cursor1 = cursors[0].borrow_mut();
+        let mut cursor2 = cursors[1].borrow_mut();
+
+        assert!(cursor1.get_trail(0).is_ok());
+        assert!(cursor2.get_trail(1).is_ok());
+        multi_cursor.reset();
+
+        let events: Vec<Event> = multi_cursor.collect();
+        assert_eq!(vec![10, 11, 12, 20, 21, 22], events.iter().map(|e| e.timestamp).collect::<Vec<u64>>());
+
+        // TODO: Test dropping cursors, should not be allowed if multi
+        // cursor is still around.
     }
 }
