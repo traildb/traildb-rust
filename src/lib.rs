@@ -548,12 +548,8 @@ impl<'a> MultiEvent<'a> {
             match e.as_ref() {
                 None => None,
                 Some(multi_event) => {
-                    match Event::from_tdb_event(multi_event.event) {
-                        None => None,
-                        Some(event) =>
-                            Some(MultiEvent { event: event,
-                                              cursor_idx: multi_event.cursor_idx as usize})
-                    }
+                    Some(MultiEvent { event: Event::from_tdb_event(multi_event.event).unwrap(),
+                                      cursor_idx: multi_event.cursor_idx as usize})
                 }
             }
         }
