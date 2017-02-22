@@ -1,14 +1,14 @@
 [package]
-authors = ["Jay Kickliter <jay@kickliter.com>", "Kenan Sulayman <kenan@sly.mn>"]
+authors = ["Jay Kickliter <jay@kickliter.com>", "Kenan Sulayman <kenan@sly.mn>", "Knut Nesheim <knutin@gmail.com>"]
 build = "build.rs"
 name = "traildb"
-version = "0.2.0"
+version = "0.3.0"
 
 description = "Binding for TrailDB, an efficient tool for storing and querying series of events."
 license = "MIT"
 
 documentation = "https://docs.rs/traildb/0.2.0/traildb/"
-repository = "https://github.com/KenanSulayman/gdax-client.git"
+repository = "https://github.com/knutin/traildb-rs.git"
 
 [build-dependencies]
 bindgen = "^0.20.2"
