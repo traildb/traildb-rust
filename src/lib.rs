@@ -305,12 +305,16 @@ impl<'a> Db<'a> {
         DbIter { pos: 0, db: self }
     }
 
-    pub fn get_item_value(&'a self, item: Item) -> &'a str {
+    pub fn get_item_value(&'a self, item: Item) -> Option<&'a str> {
         unsafe {
             let mut len = 0u64;
             let ptr = ffi::tdb_get_item_value(self.obj, transmute(item), &mut len);
-            let s = std::slice::from_raw_parts(ptr as *const u8, len as usize);
-            std::str::from_utf8_unchecked(s)
+            if len > 0 {
+                let s = std::slice::from_raw_parts(ptr as *const u8, len as usize);
+                Some(std::str::from_utf8_unchecked(s))
+            } else {
+                None
+            }
         }
     }
 
@@ -649,7 +653,8 @@ mod test_traildb {
                 // check that inserted event values match read values
                 for (item, item_ref) in event.items.into_iter().zip(field_vals.iter()) {
                     let item = db.get_item_value(*item);
-                    assert_eq!(item, *item_ref);
+                    assert!(item.is_some());
+                    assert_eq!(item.unwrap(), *item_ref);
                 }
             }
         }

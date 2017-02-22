@@ -12,7 +12,7 @@ fn table_from_event(event: Event, header: Row, db: &Db) -> Table {
     let mut row_cells = Vec::new();
     row_cells.push(Cell::new(&format!("{}", event.timestamp)));
     for item in event.items {
-        let item = db.get_item_value(*item);
+        let item = db.get_item_value(*item).unwrap();
         let cell = Cell::new(item);
         &row_cells.push(cell);
     }
