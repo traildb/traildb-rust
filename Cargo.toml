@@ -16,11 +16,7 @@ bindgen = "^0.20.2"
 [dependencies]
 clang-sys = "0.12.0"
 libc = "0.2.20"
-prettytable-rs = "0.6.6"
 
 [dev-dependencies]
-prettytable-rs = "0.6.2"
-
-[dev-dependencies.uuid]
-features = ["v4"]
-version = "0.3.1"
+prettytable-rs = "0.6.6"
+uuid = { version = "0.3.1", features = ["v4"] }

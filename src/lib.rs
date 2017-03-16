@@ -352,7 +352,7 @@ impl<'a> Db<'a> {
         for i in 1..self.lexicon_size(field) {
             let value = unsafe {
                 let mut len = 0u64;
-                let ptr = unsafe { ffi::tdb_get_value(self.obj, field, i, &mut len) };
+                let ptr = ffi::tdb_get_value(self.obj, field, i, &mut len);
                 let s = std::slice::from_raw_parts(ptr as *const u8, len as usize);
                 std::str::from_utf8_unchecked(s)
             };
@@ -565,7 +565,7 @@ impl<'a> MultiEvent<'a> {
 #[cfg(test)]
 mod test_traildb {
     extern crate uuid;
-    use super::{Constructor, Db, Field, Event, MultiCursor, MultiEvent};
+    use super::{Constructor, Db, MultiCursor, MultiEvent};
     use std::path::Path;
     use std::cell::RefCell;
     use std::collections::HashSet;
