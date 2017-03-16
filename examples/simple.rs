@@ -1,3 +1,5 @@
+// Run this with cargo run --example simple
+
 extern crate traildb;
 extern crate uuid;
 
