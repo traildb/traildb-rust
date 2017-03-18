@@ -217,7 +217,7 @@ impl Constructor {
 
 
 pub struct Db<'a> {
-    obj: &'a mut ffi::tdb
+    obj: &'a mut ffi::tdb,
 }
 
 impl<'a> Db<'a> {
@@ -271,9 +271,9 @@ impl<'a> Db<'a> {
             return None;
         };
         Some(Trail {
-            id: trail_id,
-            cursor: cursor,
-        })
+                 id: trail_id,
+                 cursor: cursor,
+             })
     }
 
     pub fn get_trail_id(&self, uuid: &Uuid) -> Option<TrailId> {
@@ -325,11 +325,7 @@ impl<'a> Db<'a> {
                                          value.as_ptr() as *const i8,
                                          value.len() as u64);
 
-            if item == 0 {
-                None
-            } else {
-                Some(Item(item))
-            }
+            if item == 0 { None } else { Some(Item(item)) }
         }
     }
 
@@ -377,9 +373,7 @@ impl<'a> Db<'a> {
 
 impl<'a> Drop for Db<'a> {
     fn drop(&mut self) {
-        unsafe {
-            ffi::tdb_close(self.obj)
-        };
+        unsafe { ffi::tdb_close(self.obj) };
     }
 }
 
@@ -388,7 +382,7 @@ impl<'a> Drop for Db<'a> {
 
 pub struct DbIter<'a> {
     pos: u64,
-    db: &'a Db<'a>
+    db: &'a Db<'a>,
 }
 
 impl<'a> Iterator for DbIter<'a> {
@@ -448,7 +442,7 @@ impl<'a> Iterator for Cursor<'a> {
 
 
 pub struct MultiCursor<'a> {
-    obj: &'a mut ffi::tdb_multi_cursor
+    obj: &'a mut ffi::tdb_multi_cursor,
 }
 
 impl<'a> MultiCursor<'a> {
@@ -463,7 +457,8 @@ impl<'a> MultiCursor<'a> {
         }
 
         unsafe {
-            let ptr = ffi::tdb_multi_cursor_new(ptrs.as_slice().as_ptr() as *mut *mut ffi::tdb_cursor,
+            let ptr = ffi::tdb_multi_cursor_new(ptrs.as_slice().as_ptr() as
+                                                *mut *mut ffi::tdb_cursor,
                                                 ptrs.len() as u64);
             MultiCursor { obj: transmute(ptr) }
         }
@@ -529,10 +524,10 @@ impl<'a> Event<'a> {
                 None => None,
                 Some(e) => {
                     Some(Event {
-                        timestamp: e.timestamp,
-                        items: std::slice::from_raw_parts(transmute(&e.items),
-                                                          e.num_items as usize)
-                    })
+                             timestamp: e.timestamp,
+                             items: std::slice::from_raw_parts(transmute(&e.items),
+                                                               e.num_items as usize),
+                         })
                 }
             }
         }
@@ -542,7 +537,7 @@ impl<'a> Event<'a> {
 #[derive(Debug)]
 pub struct MultiEvent<'a> {
     pub cursor_idx: usize,
-    pub event: Event<'a>
+    pub event: Event<'a>,
 }
 
 
@@ -552,8 +547,10 @@ impl<'a> MultiEvent<'a> {
             match e.as_ref() {
                 None => None,
                 Some(multi_event) => {
-                    Some(MultiEvent { event: Event::from_tdb_event(multi_event.event).unwrap(),
-                                      cursor_idx: multi_event.cursor_idx as usize})
+                    Some(MultiEvent {
+                             event: Event::from_tdb_event(multi_event.event).unwrap(),
+                             cursor_idx: multi_event.cursor_idx as usize,
+                         })
                 }
             }
         }
@@ -692,7 +689,8 @@ mod test_traildb {
         multi_cursor.reset();
 
         let multi_events: Vec<MultiEvent> = multi_cursor.collect();
-        assert_eq!(vec![10, 11, 12, 20, 21, 22], multi_events.iter().map(|me| me.event.timestamp).collect::<Vec<u64>>());
+        assert_eq!(vec![10, 11, 12, 20, 21, 22],
+                   multi_events.iter().map(|me| me.event.timestamp).collect::<Vec<u64>>());
         assert_eq!(HashSet::from_iter(vec![0, 0, 0, 1, 1, 1].into_iter()),
                    multi_events.iter().map(|me| me.cursor_idx).collect::<HashSet<usize>>());
 
