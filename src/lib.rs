@@ -421,6 +421,11 @@ impl<'a> Cursor<'a> {
     pub fn len(&mut self) -> u64 {
         unsafe { ffi::tdb_get_trail_length(self.obj) }
     }
+
+    pub fn set_filter(&mut self, filter: &EventFilter) -> Result<(), Error> {
+        let ret = unsafe { ffi::tdb_cursor_set_event_filter(self.obj, filter.obj) };
+        wrap_tdb_err(ret, ())
+    }
 }
 
 impl<'a> Drop for Cursor<'a> {
@@ -558,23 +563,72 @@ impl<'a> MultiEvent<'a> {
 }
 
 
+pub struct EventFilter<'b> {
+    obj: &'b mut ffi::tdb_event_filter
+}
+
+impl<'b> EventFilter<'b> {
+    pub fn new() -> EventFilter<'b> {
+        let filter = unsafe { ffi::tdb_event_filter_new() };
+        EventFilter { obj: unsafe { transmute(filter) } }
+    }
+
+    pub fn or(&mut self, item: Item) -> &mut EventFilter<'b> {
+        unsafe { ffi::tdb_event_filter_add_term(self.obj, item.0, false as i32); };
+        self
+    }
+
+    pub fn or_not(&mut self, item: Item) -> &mut EventFilter<'b> {
+        unsafe { ffi::tdb_event_filter_add_term(self.obj, item.0, true as i32); };
+        self
+    }
+
+    pub fn and(&mut self) -> &mut EventFilter<'b> {
+        let ret = wrap_tdb_err(unsafe { ffi::tdb_event_filter_new_clause(self.obj) }, ());
+        ret.expect("tdb_event_filter_new_clause failed");
+        self
+    }
+
+    pub fn time_range(&mut self, start: u64, end: u64) -> &mut EventFilter<'b> {
+        let ret = wrap_tdb_err(unsafe { ffi::tdb_event_filter_add_time_range(self.obj, start, end) }, ());
+        ret.expect("tdb_event_filter_add_time_range failed");
+        self
+    }
+
+    pub fn num_clauses(&mut self) -> u64 {
+        unsafe { ffi::tdb_event_filter_num_clauses(self.obj) }
+    }
+}
+
+
+impl<'b> Drop for EventFilter<'b> {
+    fn drop(&mut self) {
+        unsafe { ffi::tdb_event_filter_free(self.obj) };
+    }
+}
+
+
+
 
 #[cfg(test)]
 mod test_traildb {
     extern crate uuid;
-    use super::{Constructor, Db, MultiCursor, MultiEvent};
-    use std::path::Path;
+    extern crate tempdir;
+    use super::{Constructor, Db, Cursor, MultiCursor, MultiEvent, EventFilter};
     use std::cell::RefCell;
     use std::collections::HashSet;
     use std::iter::FromIterator;
+    use self::tempdir::TempDir;
 
     #[test]
     #[no_mangle]
     fn test_traildb() {
         // create a new constructor
         let field_names = ["field1", "field2"];
-        let db_path = Path::new("test");
-        let mut cons = Constructor::new(db_path, &field_names).unwrap();
+
+        let mut path = TempDir::new("traildb-tmp").unwrap().into_path();
+        path.push("kitchen-sink-test");
+        let mut cons = Constructor::new(&path, &field_names).unwrap();
         let field_vals = ["cats", "dogs"];
 
         // add an event
@@ -601,8 +655,7 @@ mod test_traildb {
         assert!(cons.finalize().is_ok());
 
         // open test database
-        let db_path = Path::new("test");
-        let db = Db::open(db_path).unwrap();
+        let db = Db::open(&path).unwrap();
 
         // check number of fields
         let num_fields = db.num_fields();
@@ -660,8 +713,10 @@ mod test_traildb {
     #[test]
     fn test_multi_cursor() {
         let field_names = ["field1"];
-        let db_path = Path::new("multicursor-test");
-        let mut cons = Constructor::new(db_path, &field_names).unwrap();
+        let mut path = TempDir::new("traildb-tmp").unwrap().into_path();
+        path.push("multicursor-test");
+
+        let mut cons = Constructor::new(&path, &field_names).unwrap();
 
         let uuid1 = *uuid::Uuid::new_v4().as_bytes();
         let uuid2 = *uuid::Uuid::new_v4().as_bytes();
@@ -677,7 +732,7 @@ mod test_traildb {
         assert!(cons.finalize().is_ok());
 
 
-        let db = Db::open(db_path).unwrap();
+        let db = Db::open(&path).unwrap();
 
         let cursors = vec![RefCell::new(db.cursor()), RefCell::new(db.cursor())];
         let mut multi_cursor = MultiCursor::new(&cursors);
@@ -696,5 +751,91 @@ mod test_traildb {
 
         // TODO: Test dropping cursors, should not be allowed if multi
         // cursor is still around.
+    }
+
+
+    #[test]
+    fn filters() {
+        let mut path = TempDir::new("traildb-tmp").unwrap().into_path();
+        path.push("filters");
+
+        let mut cons = Constructor::new(&path, &vec!["field1", "field2"]).unwrap();
+
+        let uuid = *uuid::Uuid::new_v4().as_bytes();
+
+        assert!(cons.add(&uuid, 0, &vec!["a", "0"]).is_ok());
+        assert!(cons.add(&uuid, 1, &vec!["b", "1"]).is_ok());
+        assert!(cons.add(&uuid, 2, &vec!["a", "2"]).is_ok());
+        assert!(cons.add(&uuid, 3, &vec!["c", "3"]).is_ok());
+        assert!(cons.add(&uuid, 4, &vec!["a", "4"]).is_ok());
+        assert!(cons.add(&uuid, 5, &vec!["d", "5"]).is_ok());
+        assert!(cons.finalize().is_ok());
+
+        // Return a Vec with timestamps of event returned when the
+        // given filter is applied.
+        fn timestamps(c: &mut Cursor, f: &EventFilter) -> Vec<u64> {
+            assert!(c.get_trail(0).is_ok());
+            assert!(c.set_filter(f).is_ok());
+
+            let mut result = vec![];
+            for event in c {
+                result.push(event.timestamp);
+            }
+            result
+        }
+
+
+        let db = Db::open(&path).unwrap();
+        let fields = db.fields();
+        let field1 = fields.get("field1").unwrap();
+        let field2 = fields.get("field2").unwrap();
+
+        let mut cursor = db.cursor();
+
+        let mut f = EventFilter::new();
+
+        // Empty filter doesn't match any events
+        assert_eq!(1, f.num_clauses());
+        assert_eq!(0, timestamps(&mut cursor, &f).len());
+
+        // Events with field1=a
+        f.or(db.get_item(*field1, "a").unwrap());
+        assert_eq!(vec![0, 2, 4], timestamps(&mut cursor, &f));
+
+        // Calling '.or(...)' again adds another OR clause
+        // the filter is now: field1=a OR field1=b
+        f.or(db.get_item(*field1, "b").unwrap());
+        assert_eq!(vec![0, 1, 2, 4], timestamps(&mut cursor, &f));
+
+        drop(f);
+
+
+        // field1=a OR field1=b with more ergonomic API
+        let mut f = EventFilter::new();
+        f.or(db.get_item(*field1, "a").unwrap())
+            .or(db.get_item(*field1, "b").unwrap());
+        assert_eq!(vec![0, 1, 2, 4], timestamps(&mut cursor, &f));
+        drop(f);
+
+        // NOT field1=a
+        let mut f = EventFilter::new();
+        f.or(db.get_item(*field1, "a").unwrap());
+        assert_eq!(vec![0, 2, 4], timestamps(&mut cursor, &f));
+        drop(f);
+
+        // field1=a AND (field2=0 OR field2=2)
+        let mut f = EventFilter::new();
+        f.or(db.get_item(*field1, "a").unwrap())
+            .and()
+            .or(db.get_item(*field2, "0").unwrap())
+            .or(db.get_item(*field2, "2").unwrap());
+        assert_eq!(vec![0, 2], timestamps(&mut cursor, &f));
+        drop(f);
+
+        // start_time <= timestamp < end_time
+        let mut f = EventFilter::new();
+        f.time_range(2, 4);
+        assert_eq!(vec![2, 3], timestamps(&mut cursor, &f));
+        drop(f);
     }
 }
