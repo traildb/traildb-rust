@@ -438,6 +438,10 @@ impl<'a> Cursor<'a> {
         let ret = unsafe { ffi::tdb_cursor_set_event_filter(self.obj, filter.obj) };
         wrap_tdb_err(ret, ())
     }
+
+    pub fn unset_filter(&mut self) {
+        unsafe { ffi::tdb_cursor_unset_event_filter(self.obj) };
+    }
 }
 
 impl<'a> Drop for Cursor<'a> {
@@ -583,6 +587,16 @@ pub struct EventFilter<'b> {
 impl<'b> EventFilter<'b> {
     pub fn new() -> EventFilter<'b> {
         let filter = unsafe { ffi::tdb_event_filter_new() };
+        EventFilter { obj: unsafe { transmute(filter) } }
+    }
+
+    pub fn all() -> EventFilter<'b> {
+        let filter = unsafe { ffi::tdb_event_filter_new_match_all() };
+        EventFilter { obj: unsafe { transmute(filter) } }
+    }
+
+    pub fn none() -> EventFilter<'b> {
+        let filter = unsafe { ffi::tdb_event_filter_new_match_none() };
         EventFilter { obj: unsafe { transmute(filter) } }
     }
 
@@ -850,5 +864,18 @@ mod tests {
         f.time_range(2, 4);
         assert_eq!(vec![2, 3], timestamps(&mut cursor, &f));
         drop(f);
+
+        // EventFilter::all() always matches all events.
+        let mut f = EventFilter::all();
+        assert_eq!(6, timestamps(&mut cursor, &f).len());
+        // TODO: Adding a term to a match_all filter doesn't make
+        // sense. Should it fail?
+        f.or(db.get_item(*field1, "a").unwrap());
+        assert_eq!(6, timestamps(&mut cursor, &f).len());
+        drop(f);
+
+        // EventFilter::none() always matches all events.
+        let mut f = EventFilter::none();
+        assert_eq!(0, timestamps(&mut cursor, &f).len());
     }
 }

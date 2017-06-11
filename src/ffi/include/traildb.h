@@ -177,6 +177,12 @@ Event filter
 /* Create a new event filter */
 struct tdb_event_filter *tdb_event_filter_new(void);
 
+/* Create a new event filter that matches all events */
+struct tdb_event_filter *tdb_event_filter_new_match_all(void);
+
+/* Create a new event filter that matches nothing */
+struct tdb_event_filter *tdb_event_filter_new_match_none(void);
+
 /* Add a new term (item) in an OR-clause */
 tdb_error tdb_event_filter_add_term(struct tdb_event_filter *filter,
                                     tdb_item term,
@@ -286,10 +292,8 @@ void tdb_multi_cursor_free(tdb_multi_cursor *mcursor);
 /*
 Return the next event from the cursor
 
-tdb_cursor_next() is defined here so it can be inlined
-
-the pragma is a workaround for older GCCs that have this issue:
-https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54113
+Rust bindgen does not discover the function if the inline metadata
+from traildb.h is present, so we remove it.
 */
 
 const tdb_event *tdb_cursor_next(tdb_cursor *cursor)
@@ -307,7 +311,7 @@ const tdb_event *tdb_cursor_next(tdb_cursor *cursor)
 /*
 Peek the next event in the cursor
 */
-__attribute__((visibility("default"))) inline const tdb_event *tdb_cursor_peek(tdb_cursor *cursor)
+const tdb_event *tdb_cursor_peek(tdb_cursor *cursor)
 {
     if (cursor->num_events_left > 0 || _tdb_cursor_next_batch(cursor)){
         return (const tdb_event*)cursor->next_event;
