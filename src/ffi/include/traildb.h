@@ -320,6 +320,4 @@ const tdb_event *tdb_cursor_peek(tdb_cursor *cursor)
 }
 
 
-#pragma GCC diagnostic pop
-
 #endif /* __TRAILDB_H__ */
