@@ -6,3 +6,11 @@ mkdir llvm
 tar -xf ${LLVM}.tar.xz -C llvm --strip-components=1
 
 export LLVM_CONFIG_PATH=`pwd`/llvm/bin/llvm-config
+
+
+wget https://github.com/traildb/traildb/archive/0.6.tar.gz
+tar -zxf 0.6.tar.gz
+pushd traildb-0.6
+./waf configure
+./waf build
+./waf install
