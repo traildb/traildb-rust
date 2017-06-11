@@ -20,4 +20,4 @@ libc = "0.2.21"
 [dev-dependencies]
 prettytable-rs = "0.6.6"
 uuid = { version = "0.4.0", features = ["v4"] }
-tempdir = "*"
+tempdir = "0.3"
