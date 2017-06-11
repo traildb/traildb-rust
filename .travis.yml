@@ -10,5 +10,7 @@ addons:
         - ubuntu-toolchain-r-test
       packages:
         - gcc-5
+        - libarchive-dev
+        - pkgconf
 
 before_install: . ./ci/before_install.sh
