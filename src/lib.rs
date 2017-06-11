@@ -123,7 +123,7 @@ pub type Field = u32;
 /// A structure that represents a `TrailDB` constructor.
 ///
 /// A constructor lives in RAM. All events are added to the constructor.
-/// After being written to disk, it the `TrailDB` is immutable.
+/// After being written to disk, the `TrailDB` is immutable.
 ///
 /// # Examples
 ///
@@ -206,14 +206,18 @@ impl Constructor {
         wrap_tdb_err(ret, ())
     }
 
-    /// Combine an alread finalized TrailDB with a constructor.
+    /// Combine an already finalized TrailDB with a constructor.
     pub fn append(&mut self, db: &Db) -> Result<(), Error> {
         let ret = unsafe { ffi::tdb_cons_append(self.obj, transmute(db)) };
         wrap_tdb_err(ret, ())
     }
 }
 
-
+impl Drop for Constructor {
+    fn drop(&mut self) {
+        unsafe { ffi::tdb_cons_close(self.obj) };
+    }
+}
 
 
 pub struct Db<'a> {
@@ -407,10 +411,18 @@ impl<'a> Iterator for DbIter<'a> {
 
 
 
-
+/// A cursor allows you to iterate over the events in a single trail,
+/// decoding a batch from the optimized storage format when necessary.
+///
+/// A cursor can be re-used across trails, by calling
+/// `cursor.get_trail()` with the `TrailId`. Initializing a cursor is
+/// expensive and using `DbIter` which initializes a new cursor for
+/// each trail will be much slower, than re-using a cursor.
 pub struct Cursor<'a> {
     obj: &'a mut ffi::tdb_cursor,
 }
+
+
 
 impl<'a> Cursor<'a> {
     pub fn get_trail(&mut self, trail_id: TrailId) -> Result<(), Error> {
@@ -445,7 +457,8 @@ impl<'a> Iterator for Cursor<'a> {
     }
 }
 
-
+/// A `MultiCursor` allows you to iterate over multiple cursors at the
+/// same time, even from different TrailDBs.
 pub struct MultiCursor<'a> {
     obj: &'a mut ffi::tdb_multi_cursor,
 }
@@ -611,7 +624,7 @@ impl<'b> Drop for EventFilter<'b> {
 
 
 #[cfg(test)]
-mod test_traildb {
+mod tests {
     extern crate uuid;
     extern crate tempdir;
     use super::{Constructor, Db, Cursor, MultiCursor, MultiEvent, EventFilter};

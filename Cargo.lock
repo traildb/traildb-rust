@@ -1,6 +1,6 @@
 [root]
 name = "traildb"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "bindgen 0.20.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "clang-sys 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
