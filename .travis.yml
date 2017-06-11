@@ -10,3 +10,5 @@ addons:
         - ubuntu-toolchain-r-test
       packages:
         - gcc-5
+
+before_install: . ./ci/before_install.sh
