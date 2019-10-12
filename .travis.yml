@@ -10,6 +10,7 @@ dist: bionic
 
 env:
   global:
+    - WAF_VERSION=2.0.18
     - RUST_BACKTRACE=1
 
 addons:
@@ -24,4 +25,4 @@ addons:
 
 before_install:
   - git clone https://github.com/traildb/traildb /tmp/traildb
-  - pushd /tmp/traildb && curl -o ./waf https://waf.io/waf-2.0.18 && chmod +x ./waf && ./waf configure && ./waf build && sudo ./waf install && sudo ldconfig && popd
+  - pushd /tmp/traildb && curl -o ./waf https://waf.io/waf-${WAF_VERSION} && chmod +x ./waf && ./waf configure && ./waf build && sudo ./waf install && sudo ldconfig && popd
