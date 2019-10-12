@@ -4,3 +4,4 @@ src/ffi/mod.rs
 *.bk
 *\#
 .\#*
+/Cargo.lock
