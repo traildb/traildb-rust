@@ -225,7 +225,7 @@ pub struct Db<'a> {
 }
 
 impl<'a> Db<'a> {
-    pub fn open(path: &Path) -> Result<Self, Error> {
+    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let ptr = unsafe { ffi::tdb_init() };
         let ret = unsafe { ffi::tdb_open(ptr, path_cstr(path).as_ptr()) };
         unsafe { wrap_tdb_err(ret, Db { obj: transmute(ptr) }) }
@@ -527,8 +527,8 @@ impl<'a> Iterator for Trail<'a> {
 
 
 
-fn path_cstr(path: &Path) -> CString {
-    CString::new(path.to_str().unwrap()).unwrap()
+fn path_cstr<P: AsRef<Path>>(path: P) -> CString {
+    CString::new(path.as_ref().to_str().unwrap()).unwrap()
 }
 
 
