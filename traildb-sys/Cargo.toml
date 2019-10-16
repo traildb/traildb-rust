@@ -1,9 +1,10 @@
 [package]
 name = "traildb-sys"
-authors = ["Tomas Sedlak <tomas.sedlak@simplestaking.com>"]
-description = "Builds traildb library"
+authors = ["Tomas Sedlak <tomas.sedlak@simplestaking.com>","Kenan Sulayman <kenan@sly.mn>"]
+description = "Low level bindings to traildb"
+readme = "readme.md"
 license = "MIT"
-version = "0.6.0"
+version = "0.6.1"
 edition = "2018"
 
 [build-dependencies]
@@ -12,3 +13,4 @@ glob = "0.3"
 libflate = "0.1"
 pkg-config = "0.3"
 tar = "0.4"
+bindgen = "0.51.1"

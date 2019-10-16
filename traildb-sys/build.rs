@@ -5,6 +5,8 @@ use std::path::PathBuf;
 use libflate::gzip::Decoder;
 use tar::Archive;
 
+use bindgen;
+
 const SOURCES_PREFIX: &str = "traildb-0.6";
 const ARCHIVE_SUFFIX: &str = ".tar.gz";
 
@@ -89,7 +91,20 @@ fn build_lib() {
     compiler.compile("traildb");
 }
 
+fn build_bindings() {
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let traildb_path = out_path.join(SOURCES_PREFIX);
+
+    let _ = bindgen::builder()
+        .header(traildb_path.join("src/traildb.h").to_str().unwrap())
+        .emit_builtins()
+        .generate()
+        .expect("Unable to generate bindings")
+        .write_to_file(out_path.join("ffi.rs"));
+}
+
 fn main() {
     extract_archive();
     build_lib();
+    build_bindings();
 }
