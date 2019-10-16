@@ -8,7 +8,7 @@ First, add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-traildb = "0.4.0"
+traildb = "0.5.0"
 ```
 
 At the moment there's no documentation, but a good starting point is
