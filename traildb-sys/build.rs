@@ -107,4 +107,6 @@ fn main() {
     extract_archive();
     build_lib();
     build_bindings();
+
+    println!("cargo:rustc-link-lib=traildb");
 }
