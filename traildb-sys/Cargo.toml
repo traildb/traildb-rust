@@ -4,7 +4,7 @@ authors = ["Tomas Sedlak <tomas.sedlak@simplestaking.com>","Kenan Sulayman <kena
 description = "Low level bindings to traildb"
 readme = "readme.md"
 license = "MIT"
-version = "0.6.2"
+version = "0.6.3"
 edition = "2018"
 
 [build-dependencies]

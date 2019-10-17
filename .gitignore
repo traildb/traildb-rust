@@ -6,3 +6,4 @@ src/ffi/mod.rs
 *\#
 .\#*
 /Cargo.lock
+.DS_Store

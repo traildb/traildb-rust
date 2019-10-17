@@ -98,6 +98,9 @@ fn build_bindings() {
     let _ = bindgen::builder()
         .header(traildb_path.join("src/traildb.h").to_str().unwrap())
         .emit_builtins()
+        .generate_inline_functions(true)
+        .clang_arg("-fno-inline-functions")
+        .clang_arg("-fkeep-inline-functions")
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(out_path.join("ffi.rs"));
