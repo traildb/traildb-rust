@@ -1,5 +1,6 @@
 #[allow(non_camel_case_types,dead_code,non_snake_case,private_in_public)]
-mod ffi;
+extern crate traildb_sys;
+
 use std::path::Path;
 use std::ffi::CString;
 use std::fmt;
@@ -93,9 +94,9 @@ impl std::fmt::Display for Error {
 }
 
 /// Convert a `tdb_error` either to either a `Ok(T)` or `Err(Error)`
-fn wrap_tdb_err<T>(err: ffi::tdb_error, val: T) -> Result<T, Error> {
+fn wrap_tdb_err<T>(err: traildb_sys::tdb_error, val: T) -> Result<T, Error> {
     match err {
-        ffi::tdb_error::TDB_ERR_OK => Ok(val),
+        traildb_sys::tdb_error_TDB_ERR_OK => Ok(val),
         _ => Err(unsafe { transmute(err) }),
     }
 }
@@ -153,7 +154,7 @@ pub type Field = u32;
 /// assert!(cons.finalize().is_ok());
 /// ```
 pub struct Constructor {
-    obj: *mut ffi::tdb_cons,
+    obj: *mut traildb_sys::tdb_cons,
 }
 
 impl Constructor {
@@ -167,12 +168,12 @@ impl Constructor {
             forget(s);
         }
 
-        let ptr = unsafe { ffi::tdb_cons_init() };
+        let ptr = unsafe { traildb_sys::tdb_cons_init() };
         let ret = unsafe {
-            ffi::tdb_cons_open(ptr,
-                               path_cstr(path).as_ptr(),
-                               field_ptrs.as_slice().as_ptr() as *mut *const i8,
-                               field_ptrs.len() as u64)
+            traildb_sys::tdb_cons_open(ptr,
+                                       path_cstr(path).as_ptr(),
+                                       field_ptrs.as_slice().as_ptr() as *mut *const i8,
+                                       field_ptrs.len() as u64)
         };
         wrap_tdb_err(ret, Constructor { obj: ptr })
     }
@@ -186,87 +187,87 @@ impl Constructor {
             val_lens.push(v.len() as u64);
         }
         let ret = unsafe {
-            ffi::tdb_cons_add(self.obj,
-                              uuid.as_ptr() as *mut u8,
-                              timestamp,
-                              val_ptrs.as_slice().as_ptr() as *mut *const i8,
-                              val_lens.as_slice().as_ptr() as *const u64)
+            traildb_sys::tdb_cons_add(self.obj,
+                                      uuid.as_ptr() as *mut u8,
+                                      timestamp,
+                                      val_ptrs.as_slice().as_ptr() as *mut *const i8,
+                                      val_lens.as_slice().as_ptr() as *const u64)
         };
         wrap_tdb_err(ret, ())
     }
 
     /// Close a constructor without writing it to disk.
     pub fn close(&mut self) {
-        unsafe { ffi::tdb_cons_close(self.obj) };
+        unsafe { traildb_sys::tdb_cons_close(self.obj) };
     }
 
     /// Write the TrailDB to disk and close it.
     pub fn finalize(&mut self) -> Result<(), Error> {
-        let ret = unsafe { ffi::tdb_cons_finalize(self.obj) };
+        let ret = unsafe { traildb_sys::tdb_cons_finalize(self.obj) };
         wrap_tdb_err(ret, ())
     }
 
     /// Combine an already finalized TrailDB with a constructor.
     pub fn append(&mut self, db: &Db) -> Result<(), Error> {
-        let ret = unsafe { ffi::tdb_cons_append(self.obj, transmute(db)) };
+        let ret = unsafe { traildb_sys::tdb_cons_append(self.obj, transmute(db)) };
         wrap_tdb_err(ret, ())
     }
 }
 
 impl Drop for Constructor {
     fn drop(&mut self) {
-        unsafe { ffi::tdb_cons_close(self.obj) };
+        unsafe { traildb_sys::tdb_cons_close(self.obj) };
     }
 }
 
 
 pub struct Db<'a> {
-    obj: &'a mut ffi::tdb,
+    obj: &'a mut traildb_sys::tdb,
 }
 
 impl<'a> Db<'a> {
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
-        let ptr = unsafe { ffi::tdb_init() };
-        let ret = unsafe { ffi::tdb_open(ptr, path_cstr(path).as_ptr()) };
+        let ptr = unsafe { traildb_sys::tdb_init() };
+        let ret = unsafe { traildb_sys::tdb_open(ptr, path_cstr(path).as_ptr()) };
         unsafe { wrap_tdb_err(ret, Db { obj: transmute(ptr) }) }
     }
 
     pub fn close(&mut self) {
         unsafe {
-            ffi::tdb_close(self.obj);
+            traildb_sys::tdb_close(self.obj);
         }
     }
 
     pub fn num_trails(&self) -> u64 {
-        unsafe { ffi::tdb_num_trails(self.obj) }
+        unsafe { traildb_sys::tdb_num_trails(self.obj) }
     }
 
     pub fn num_events(&self) -> u64 {
-        unsafe { ffi::tdb_num_events(self.obj) }
+        unsafe { traildb_sys::tdb_num_events(self.obj) }
     }
 
     pub fn num_fields(&self) -> u64 {
-        unsafe { ffi::tdb_num_fields(self.obj) }
+        unsafe { traildb_sys::tdb_num_fields(self.obj) }
     }
 
     pub fn min_timestamp(&self) -> Timestamp {
-        unsafe { ffi::tdb_min_timestamp(self.obj) }
+        unsafe { traildb_sys::tdb_min_timestamp(self.obj) }
     }
 
     pub fn max_timestamp(&self) -> Timestamp {
-        unsafe { ffi::tdb_max_timestamp(self.obj) }
+        unsafe { traildb_sys::tdb_max_timestamp(self.obj) }
     }
 
     pub fn version(&self) -> Version {
-        unsafe { ffi::tdb_version(self.obj) }
+        unsafe { traildb_sys::tdb_version(self.obj) }
     }
 
     pub fn will_need(&self) {
-        unsafe { ffi::tdb_willneed(self.obj) };
+        unsafe { traildb_sys::tdb_willneed(self.obj) };
     }
 
     pub fn dont_need(&self) {
-        unsafe { ffi::tdb_dontneed(self.obj) };
+        unsafe { traildb_sys::tdb_dontneed(self.obj) };
     }
 
     pub fn get_trail(&self, trail_id: TrailId) -> Option<Trail> {
@@ -275,32 +276,32 @@ impl<'a> Db<'a> {
             return None;
         };
         Some(Trail {
-                 id: trail_id,
-                 cursor: cursor,
-             })
+            id: trail_id,
+            cursor: cursor,
+        })
     }
 
     pub fn get_trail_id(&self, uuid: &Uuid) -> Option<TrailId> {
         let mut id: TrailId = 0;
         let ret = unsafe {
-            ffi::tdb_get_trail_id(self.obj, uuid.as_ptr() as *mut u8, &mut id as *mut TrailId)
+            traildb_sys::tdb_get_trail_id(self.obj, uuid.as_ptr() as *mut u8, &mut id as *mut TrailId)
         };
         match ret {
-            ffi::tdb_error::TDB_ERR_OK => Some(id),
+            traildb_sys::tdb_error_TDB_ERR_OK => Some(id),
             _ => None,
         }
     }
 
     pub fn get_uuid(&self, trail_id: TrailId) -> Option<&Uuid> {
         unsafe {
-            let ptr = ffi::tdb_get_uuid(self.obj, trail_id) as *const [u8; 16];
+            let ptr = traildb_sys::tdb_get_uuid(self.obj, trail_id) as *const [u8; 16];
             ptr.as_ref()
         }
     }
 
     pub fn cursor(&'a self) -> Cursor<'a> {
         unsafe {
-            let ptr = ffi::tdb_cursor_new(self.obj);
+            let ptr = traildb_sys::tdb_cursor_new(self.obj);
             Cursor { obj: transmute(ptr) }
         }
     }
@@ -312,7 +313,7 @@ impl<'a> Db<'a> {
     pub fn get_item_value(&'a self, item: Item) -> Option<&'a str> {
         unsafe {
             let mut len = 0u64;
-            let ptr = ffi::tdb_get_item_value(self.obj, transmute(item), &mut len);
+            let ptr = traildb_sys::tdb_get_item_value(self.obj, transmute(item), &mut len);
             if len > 0 {
                 let s = std::slice::from_raw_parts(ptr as *const u8, len as usize);
                 Some(std::str::from_utf8_unchecked(s))
@@ -324,10 +325,10 @@ impl<'a> Db<'a> {
 
     pub fn get_item(&'a self, field: Field, value: &str) -> Option<Item> {
         unsafe {
-            let item = ffi::tdb_get_item(self.obj,
-                                         transmute(field),
-                                         value.as_ptr() as *const i8,
-                                         value.len() as u64);
+            let item = traildb_sys::tdb_get_item(self.obj,
+                                                 transmute(field),
+                                                 value.as_ptr() as *const i8,
+                                                 value.len() as u64);
 
             if item == 0 { None } else { Some(Item(item)) }
         }
@@ -335,7 +336,7 @@ impl<'a> Db<'a> {
 
     pub fn get_field_name(&'a self, field: Field) -> Option<&'a str> {
         unsafe {
-            let ptr = ffi::tdb_get_field_name(self.obj, field);
+            let ptr = traildb_sys::tdb_get_field_name(self.obj, field);
             match std::ffi::CStr::from_ptr(ptr).to_str() {
                 Ok(s) => Some(s),
                 Err(_) => None,
@@ -344,7 +345,7 @@ impl<'a> Db<'a> {
     }
 
     pub fn lexicon_size(&'a self, field: Field) -> u64 {
-        unsafe { ffi::tdb_lexicon_size(self.obj, field) }
+        unsafe { traildb_sys::tdb_lexicon_size(self.obj, field) }
     }
 
     pub fn lexicon(&'a self, field: Field) -> Vec<&'a str> {
@@ -352,7 +353,7 @@ impl<'a> Db<'a> {
         for i in 1..self.lexicon_size(field) {
             let value = unsafe {
                 let mut len = 0u64;
-                let ptr = ffi::tdb_get_value(self.obj, field, i, &mut len);
+                let ptr = traildb_sys::tdb_get_value(self.obj, field, i, &mut len);
                 let s = std::slice::from_raw_parts(ptr as *const u8, len as usize);
                 std::str::from_utf8_unchecked(s)
             };
@@ -377,7 +378,7 @@ impl<'a> Db<'a> {
 
 impl<'a> Drop for Db<'a> {
     fn drop(&mut self) {
-        unsafe { ffi::tdb_close(self.obj) };
+        unsafe { traildb_sys::tdb_close(self.obj) };
     }
 }
 
@@ -419,34 +420,34 @@ impl<'a> Iterator for DbIter<'a> {
 /// expensive and using `DbIter` which initializes a new cursor for
 /// each trail will be much slower, than re-using a cursor.
 pub struct Cursor<'a> {
-    obj: &'a mut ffi::tdb_cursor,
+    obj: &'a mut traildb_sys::tdb_cursor,
 }
 
 
 
 impl<'a> Cursor<'a> {
     pub fn get_trail(&mut self, trail_id: TrailId) -> Result<(), Error> {
-        let ret = unsafe { ffi::tdb_get_trail(self.obj, trail_id) };
+        let ret = unsafe { traildb_sys::tdb_get_trail(self.obj, trail_id) };
         wrap_tdb_err(ret, ())
     }
 
     pub fn len(&mut self) -> u64 {
-        unsafe { ffi::tdb_get_trail_length(self.obj) }
+        unsafe { traildb_sys::tdb_get_trail_length(self.obj) }
     }
 
     pub fn set_filter(&mut self, filter: &EventFilter) -> Result<(), Error> {
-        let ret = unsafe { ffi::tdb_cursor_set_event_filter(self.obj, filter.obj) };
+        let ret = unsafe { traildb_sys::tdb_cursor_set_event_filter(self.obj, filter.obj) };
         wrap_tdb_err(ret, ())
     }
 
     pub fn unset_filter(&mut self) {
-        unsafe { ffi::tdb_cursor_unset_event_filter(self.obj) };
+        unsafe { traildb_sys::tdb_cursor_unset_event_filter(self.obj) };
     }
 }
 
 impl<'a> Drop for Cursor<'a> {
     fn drop(&mut self) {
-        unsafe { ffi::tdb_cursor_free(self.obj) };
+        unsafe { traildb_sys::tdb_cursor_free(self.obj) };
     }
 }
 
@@ -455,7 +456,7 @@ impl<'a> Iterator for Cursor<'a> {
 
     fn next(&mut self) -> Option<Event<'a>> {
         unsafe {
-            let e = ffi::tdb_cursor_next(self.obj);
+            let e = traildb_sys::tdb_cursor_next(self.obj);
             Event::from_tdb_event(e)
         }
     }
@@ -464,36 +465,36 @@ impl<'a> Iterator for Cursor<'a> {
 /// A `MultiCursor` allows you to iterate over multiple cursors at the
 /// same time, even from different TrailDBs.
 pub struct MultiCursor<'a> {
-    obj: &'a mut ffi::tdb_multi_cursor,
+    obj: &'a mut traildb_sys::tdb_multi_cursor,
 }
 
 impl<'a> MultiCursor<'a> {
     /// Open a cursor in each of the Dbs passed. If you want multiple
     /// cursors for the same db, include it multiple times.
     pub fn new(cursors: &[RefCell<Cursor<'a>>]) -> MultiCursor<'a> {
-        let mut ptrs: Vec<*const ffi::tdb_cursor> = vec![];
+        let mut ptrs: Vec<*const traildb_sys::tdb_cursor> = vec![];
         for refcell in cursors.iter() {
             let cursor = refcell.borrow();
-            let ptr: *const ffi::tdb_cursor = cursor.obj;
+            let ptr: *const traildb_sys::tdb_cursor = cursor.obj;
             ptrs.push(ptr);
         }
 
         unsafe {
-            let ptr = ffi::tdb_multi_cursor_new(ptrs.as_slice().as_ptr() as
-                                                *mut *mut ffi::tdb_cursor,
-                                                ptrs.len() as u64);
+            let ptr = traildb_sys::tdb_multi_cursor_new(ptrs.as_slice().as_ptr() as
+                                                            *mut *mut traildb_sys::tdb_cursor,
+                                                        ptrs.len() as u64);
             MultiCursor { obj: transmute(ptr) }
         }
     }
 
     pub fn reset(&mut self) {
-        unsafe { ffi::tdb_multi_cursor_reset(self.obj) };
+        unsafe { traildb_sys::tdb_multi_cursor_reset(self.obj) };
     }
 }
 
 impl<'a> Drop for MultiCursor<'a> {
     fn drop(&mut self) {
-        unsafe { ffi::tdb_multi_cursor_free(self.obj) };
+        unsafe { traildb_sys::tdb_multi_cursor_free(self.obj) };
     }
 }
 
@@ -502,7 +503,7 @@ impl<'a> Iterator for MultiCursor<'a> {
 
     fn next(&mut self) -> Option<MultiEvent<'a>> {
         unsafe {
-            let e = ffi::tdb_multi_cursor_next(self.obj);
+            let e = traildb_sys::tdb_multi_cursor_next(self.obj);
             MultiEvent::from_tdb_multi_event(e)
         }
     }
@@ -540,16 +541,16 @@ pub struct Event<'a> {
 }
 
 impl<'a> Event<'a> {
-    fn from_tdb_event(e: *const ffi::tdb_event) -> Option<Self> {
+    fn from_tdb_event(e: *const traildb_sys::tdb_event) -> Option<Self> {
         unsafe {
             match e.as_ref() {
                 None => None,
                 Some(e) => {
                     Some(Event {
-                             timestamp: e.timestamp,
-                             items: std::slice::from_raw_parts(transmute(&e.items),
-                                                               e.num_items as usize),
-                         })
+                        timestamp: e.timestamp,
+                        items: std::slice::from_raw_parts(transmute(&e.items),
+                                                          e.num_items as usize),
+                    })
                 }
             }
         }
@@ -564,15 +565,15 @@ pub struct MultiEvent<'a> {
 
 
 impl<'a> MultiEvent<'a> {
-    fn from_tdb_multi_event(e: *const ffi::tdb_multi_event) -> Option<Self> {
+    fn from_tdb_multi_event(e: *const traildb_sys::tdb_multi_event) -> Option<Self> {
         unsafe {
             match e.as_ref() {
                 None => None,
                 Some(multi_event) => {
                     Some(MultiEvent {
-                             event: Event::from_tdb_event(multi_event.event).unwrap(),
-                             cursor_idx: multi_event.cursor_idx as usize,
-                         })
+                        event: Event::from_tdb_event(multi_event.event).unwrap(),
+                        cursor_idx: multi_event.cursor_idx as usize,
+                    })
                 }
             }
         }
@@ -581,56 +582,56 @@ impl<'a> MultiEvent<'a> {
 
 
 pub struct EventFilter<'b> {
-    obj: &'b mut ffi::tdb_event_filter
+    obj: &'b mut traildb_sys::tdb_event_filter
 }
 
 impl<'b> EventFilter<'b> {
     pub fn new() -> EventFilter<'b> {
-        let filter = unsafe { ffi::tdb_event_filter_new() };
+        let filter = unsafe { traildb_sys::tdb_event_filter_new() };
         EventFilter { obj: unsafe { transmute(filter) } }
     }
 
     pub fn all() -> EventFilter<'b> {
-        let filter = unsafe { ffi::tdb_event_filter_new_match_all() };
+        let filter = unsafe { traildb_sys::tdb_event_filter_new_match_all() };
         EventFilter { obj: unsafe { transmute(filter) } }
     }
 
     pub fn none() -> EventFilter<'b> {
-        let filter = unsafe { ffi::tdb_event_filter_new_match_none() };
+        let filter = unsafe { traildb_sys::tdb_event_filter_new_match_none() };
         EventFilter { obj: unsafe { transmute(filter) } }
     }
 
     pub fn or(&mut self, item: Item) -> &mut EventFilter<'b> {
-        unsafe { ffi::tdb_event_filter_add_term(self.obj, item.0, false as i32); };
+        unsafe { traildb_sys::tdb_event_filter_add_term(self.obj, item.0, false as i32); };
         self
     }
 
     pub fn or_not(&mut self, item: Item) -> &mut EventFilter<'b> {
-        unsafe { ffi::tdb_event_filter_add_term(self.obj, item.0, true as i32); };
+        unsafe { traildb_sys::tdb_event_filter_add_term(self.obj, item.0, true as i32); };
         self
     }
 
     pub fn and(&mut self) -> &mut EventFilter<'b> {
-        let ret = wrap_tdb_err(unsafe { ffi::tdb_event_filter_new_clause(self.obj) }, ());
+        let ret = wrap_tdb_err(unsafe { traildb_sys::tdb_event_filter_new_clause(self.obj) }, ());
         ret.expect("tdb_event_filter_new_clause failed");
         self
     }
 
     pub fn time_range(&mut self, start: u64, end: u64) -> &mut EventFilter<'b> {
-        let ret = wrap_tdb_err(unsafe { ffi::tdb_event_filter_add_time_range(self.obj, start, end) }, ());
+        let ret = wrap_tdb_err(unsafe { traildb_sys::tdb_event_filter_add_time_range(self.obj, start, end) }, ());
         ret.expect("tdb_event_filter_add_time_range failed");
         self
     }
 
     pub fn num_clauses(&mut self) -> u64 {
-        unsafe { ffi::tdb_event_filter_num_clauses(self.obj) }
+        unsafe { traildb_sys::tdb_event_filter_num_clauses(self.obj) }
     }
 }
 
 
 impl<'b> Drop for EventFilter<'b> {
     fn drop(&mut self) {
-        unsafe { ffi::tdb_event_filter_free(self.obj) };
+        unsafe { traildb_sys::tdb_event_filter_free(self.obj) };
     }
 }
 
@@ -875,7 +876,7 @@ mod tests {
         drop(f);
 
         // EventFilter::none() always matches all events.
-        let mut f = EventFilter::none();
+        let f = EventFilter::none();
         assert_eq!(0, timestamps(&mut cursor, &f).len());
     }
 }
