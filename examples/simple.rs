@@ -28,7 +28,8 @@ fn main() {
     let mut cursor = db.cursor();
     for i in 0..db.num_trails() {
         let uuid = db.get_uuid(i).expect("Could not read uuid");
-        let uuid = uuid::Uuid::from_bytes(uuid).expect("Could not parse TrailDB uuid to Uuid v4");
+        let uuid = uuid::Uuid::from_bytes(*uuid);
+
         cursor.get_trail(i).expect("Could not read trail");
 
         while let Some(event) = cursor.next() {

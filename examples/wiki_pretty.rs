@@ -3,8 +3,8 @@ extern crate prettytable;
 use traildb::{Db, Event};
 use std::path::Path;
 use prettytable::Table;
-use prettytable::row::Row;
-use prettytable::cell::Cell;
+use prettytable::Row;
+use prettytable::Cell;
 
 fn table_from_event(event: Event, header: Row, db: &Db) -> Table {
     let mut table = Table::new();
@@ -12,9 +12,13 @@ fn table_from_event(event: Event, header: Row, db: &Db) -> Table {
     let mut row_cells = Vec::new();
     row_cells.push(Cell::new(&format!("{}", event.timestamp)));
     for item in event.items {
-        let item = db.get_item_value(*item).unwrap();
-        let cell = Cell::new(item);
-        &row_cells.push(cell);
+        match db.get_item_value(*item) {
+            Some(item) => {
+                let cell = Cell::new(item);
+                &row_cells.push(cell);
+            },
+            _ => {},
+        }
     }
     table.add_row(Row::new(row_cells));
     table
