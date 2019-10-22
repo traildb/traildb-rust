@@ -2,7 +2,7 @@
 authors = ["Jay Kickliter <jay@kickliter.com>", "Kenan Sulayman <kenan@sly.mn>", "Knut Nesheim <knutin@gmail.com>"]
 build = "build.rs"
 name = "traildb"
-version = "0.6.0"
+version = "0.6.1"
 
 description = "Binding for TrailDB, an efficient tool for storing and querying series of events."
 license = "MIT"
@@ -22,3 +22,9 @@ traildb-sys = "0.6.3"
 prettytable-rs = "0.8.0"
 uuid = { version = "0.7.4", features = ["v4"] }
 tempdir = "0.3.7"
+
+[features]
+docs-rs = []
+
+[package.metadata.docs.rs]
+features = [ "docs-rs" ] # This feature will be enabled during the docs.rs build

@@ -1,3 +1,7 @@
+#[cfg(feature = "docs-rs")]
+fn main() {} // skip the build script when this is run by docs.rs
+
+#[cfg(not(feature = "docs-rs"))]
 fn main() {
     println!("cargo:rustc-link-lib=static=traildb");
 
