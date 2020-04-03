@@ -661,7 +661,6 @@ mod tests {
     extern crate uuid;
     use self::tempdir::TempDir;
     use super::{Constructor, Cursor, Db, EventFilter, MultiCursor, MultiEvent};
-    use std::cell::RefCell;
     use std::collections::HashSet;
     use std::iter::FromIterator;
 
@@ -777,13 +776,11 @@ mod tests {
 
         let db = Db::open(&path).unwrap();
 
-        let cursors = vec![RefCell::new(db.cursor()), RefCell::new(db.cursor())];
-        let mut multi_cursor = MultiCursor::new(&cursors);
-        let mut cursor1 = cursors[0].borrow_mut();
-        let mut cursor2 = cursors[1].borrow_mut();
+        let mut cursors = vec![db.cursor(), db.cursor()];
+        assert!(cursors[0].get_trail(0).is_ok());
+        assert!(cursors[1].get_trail(1).is_ok());
 
-        assert!(cursor1.get_trail(0).is_ok());
-        assert!(cursor2.get_trail(1).is_ok());
+        let mut multi_cursor: MultiCursor = cursors.iter().collect();
         multi_cursor.reset();
 
         let multi_events: Vec<MultiEvent> = multi_cursor.collect();
