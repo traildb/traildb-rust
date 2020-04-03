@@ -1,7 +1,6 @@
 #[allow(non_camel_case_types, dead_code, non_snake_case, private_in_public)]
 extern crate traildb_sys;
 
-use std::cell::RefCell;
 use std::ffi::CString;
 use std::fmt;
 use std::mem::{forget, transmute};
@@ -481,27 +480,35 @@ pub struct MultiCursor<'a> {
 impl<'a> MultiCursor<'a> {
     /// Open a cursor in each of the Dbs passed. If you want multiple
     /// cursors for the same db, include it multiple times.
-    pub fn new(cursors: &[RefCell<Cursor<'a>>]) -> MultiCursor<'a> {
-        let mut ptrs: Vec<*const traildb_sys::tdb_cursor> = vec![];
-        for refcell in cursors.iter() {
-            let cursor = refcell.borrow();
-            let ptr: *const traildb_sys::tdb_cursor = cursor.obj;
-            ptrs.push(ptr);
-        }
+    pub fn new(cursors: &'a [Cursor<'a>]) -> MultiCursor<'a> {
+        use std::iter::FromIterator;
 
-        unsafe {
-            let ptr = traildb_sys::tdb_multi_cursor_new(
-                ptrs.as_slice().as_ptr() as *mut *mut traildb_sys::tdb_cursor,
-                ptrs.len() as u64,
-            );
-            MultiCursor {
-                obj: transmute(ptr),
-            }
+        Self::from_iter(cursors)
+    }
+
+    unsafe fn from_raw(ptrs: &[*const traildb_sys::tdb_cursor]) -> Self {
+        let ptr = traildb_sys::tdb_multi_cursor_new(
+            ptrs.as_ptr() as *mut *mut traildb_sys::tdb_cursor,
+            ptrs.len() as u64,
+        );
+        MultiCursor {
+            obj: transmute(ptr),
         }
     }
 
     pub fn reset(&mut self) {
         unsafe { traildb_sys::tdb_multi_cursor_reset(self.obj) };
+    }
+}
+
+impl<'a> std::iter::FromIterator<&'a Cursor<'a>> for MultiCursor<'a> {
+    fn from_iter<I: IntoIterator<Item = &'a Cursor<'a>>>(iter: I) -> Self {
+        let mut ptrs: Vec<*const traildb_sys::tdb_cursor> = vec![];
+        for cursor in iter.into_iter() {
+            let ptr: *const traildb_sys::tdb_cursor = cursor.obj;
+            ptrs.push(ptr);
+        }
+        unsafe { Self::from_raw(&ptrs) }
     }
 }
 
