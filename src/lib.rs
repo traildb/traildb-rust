@@ -1,4 +1,4 @@
-#[allow(non_camel_case_types,dead_code,non_snake_case,private_in_public)]
+#[allow(non_camel_case_types,dead_code,non_snake_case)]
 extern crate traildb_sys;
 
 use std::path::Path;
@@ -368,7 +368,7 @@ impl<'a> Db<'a> {
 
         for i in 1..num_fields {
             let field: Field = i as u32;
-            let name = self.get_field_name(field).unwrap().clone();
+            let name = self.get_field_name(field).unwrap();
             fields.insert(name, field);
         }
         fields
@@ -546,9 +546,10 @@ impl<'a> Event<'a> {
             match e.as_ref() {
                 None => None,
                 Some(e) => {
+                    let items_ptr = std::ptr::addr_of!(e.items);
                     Some(Event {
                         timestamp: e.timestamp,
-                        items: std::slice::from_raw_parts(transmute(&e.items),
+                        items: std::slice::from_raw_parts(transmute(items_ptr),
                                                           e.num_items as usize),
                     })
                 }

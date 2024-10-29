@@ -15,7 +15,7 @@ fn table_from_event(event: Event, header: Row, db: &Db) -> Table {
         match db.get_item_value(*item) {
             Some(item) => {
                 let cell = Cell::new(item);
-                &row_cells.push(cell);
+                let _ = &row_cells.push(cell);
             },
             _ => {},
         }
