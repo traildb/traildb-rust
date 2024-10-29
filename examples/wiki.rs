@@ -2,7 +2,7 @@ extern crate traildb;
 use traildb::Db;
 use std::path::Path;
 
-const SESSION_LIMIT: u64 = (30 * 60); // at least 30 minutes between edits
+const SESSION_LIMIT: u64 = 30 * 60; // at least 30 minutes between edits
 
 fn main() {
     // open the example db

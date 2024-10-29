@@ -2,7 +2,7 @@
 authors = ["Jay Kickliter <jay@kickliter.com>", "Kenan Sulayman <kenan@sly.mn>", "Knut Nesheim <knutin@gmail.com>"]
 build = "build.rs"
 name = "traildb"
-version = "0.6.1"
+version = "0.6.2"
 
 description = "Binding for TrailDB, an efficient tool for storing and querying series of events."
 license = "MIT"
@@ -14,9 +14,9 @@ repository = "https://github.com/traildb/traildb-rust.git"
 pkg-config = "0.3"
 
 [dependencies]
-clang-sys = "0.28.1"
+clang-sys = "1.8.1"
 libc = "0.2.64"
-traildb-sys = "0.6.3"
+traildb-sys = {path = "traildb-sys"}
 
 [dev-dependencies]
 prettytable-rs = "0.8.0"
